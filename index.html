@@ -76,7 +76,6 @@ function processImage(file) {
             results.textContent = "Error: " + err.message;
         });
 }
-
 function extractDates(text) {
     const regex = /\b(?:\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}|\d{4}[-\/]\d{1,2}[-\/]\d{1,2})\b/g;
     return text.match(regex) || [];
