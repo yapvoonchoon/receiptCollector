@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Image Date Detector</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 30px;
+        background: #f7f7f7;
+    }
+    #dropzone {
+        border: 3px dashed #bbb;
+        border-radius: 10px;
+        padding: 40px;
+        width: 80%;
+        margin: auto;
+        background: white;
+        color: #999;
+    }
+    #dropzone.dragover {
+        border-color: #4caf50;
+        background: #eaffea;
+    }
+    #results {
+        margin-top: 20px;
+        white-space: pre-wrap;
+    }
+</style>
+</head>
+<body>
+
+<h2>Image Date Detector</h2>
+<div id="dropzone">Drag & Drop an image here</div>
+<div id="results"></div>
+
+<!-- Tesseract.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+const dropzone = document.getElementById("dropzone");
+const results = document.getElementById("results");
+
+dropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("dragover");
+});
+dropzone.addEventListener("dragleave", () => {
+    dropzone.classList.remove("dragover");
+});
+dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith("image/")) {
+        processImage(file);
+    } else {
+        results.textContent = "Please drop a valid image file.";
+    }
+});
+
+function processImage(file) {
+    results.textContent = "Processing image... (this may take a few seconds)";
+    Tesseract.recognize(file, 'eng')
+        .then(({ data: { text } }) => {
+            results.textContent = "Detected Text:\n" + text + "\n\n";
+            const dates = extractDates(text);
+            if (dates.length > 0) {
+                results.textContent += "Detected Date(s):\n" + dates.join("\n");
+            } else {
+                results.textContent += "No date found.";
+            }
+        })
+        .catch(err => {
+            results.textContent = "Error: " + err.message;
+        });
+}
+
+function extractDates(text) {
+    const regex = /\b(?:\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}|\d{4}[-\/]\d{1,2}[-\/]\d{1,2})\b/g;
+    return text.match(regex) || [];
+}
+</script>
+
+</body>
+</html>
