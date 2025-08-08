@@ -1,86 +1,222 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Image Date Detector</title>
-<style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Price Tag Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Yomogi&display=swap" rel="stylesheet" />
+  <style>
     body {
-        font-family: Arial, sans-serif;
-        text-align: center;
-        padding: 30px;
-        background: #f7f7f7;
+      font-family: 'Yomogi', sans-serif;
+      background-color: #e6f0e6;
+      margin: 0;
+      padding: 1rem;
     }
-    #dropzone {
-        border: 3px dashed #bbb;
-        border-radius: 10px;
-        padding: 40px;
-        width: 80%;
-        margin: auto;
-        background: white;
-        color: #999;
+    #controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
     }
-    #dropzone.dragover {
-        border-color: #4caf50;
-        background: #eaffea;
+    label[for="fileInput"] {
+      display: inline-block;
+      padding: 12px 20px;
+      font-size: 18px;
+      font-family: Arial, sans-serif;
+      border: none;
+      border-radius: 8px;
+      background-color: #1e90ff;
+      color: white;
+      cursor: pointer;
+      width: 280px;
+      text-align: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
-    #results {
-        margin-top: 20px;
-        white-space: pre-wrap;
+    label[for="fileInput"]:hover {
+      background-color: #1c86ee;
     }
-</style>
+    input[type="file"] {
+      display: none;
+    }
+    button {
+      padding: 12px 20px;
+      font-size: 18px;
+      font-family: Arial, sans-serif;
+      border: none;
+      border-radius: 8px;
+      background-color: #4CAF50;
+      color: white;
+      cursor: pointer;
+      width: 240px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #tag-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+    .tag {
+      width: 378px;
+      height: 120px;
+      background: white;
+      padding: 4px;
+      box-sizing: border-box;
+      position: relative;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      margin-top: 0px;    
+      margin-bottom: 0px; 
+    }
+    .qr {
+      width: 110px;
+      height: 110px;
+      margin-right: 8px;
+    }
+    .text {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+      max-width: 300px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .description {
+      font-family: 'Yomogi', sans-serif;
+      font-size: 34px;
+      font-weight: bold;
+      margin-top: 0px;    
+      margin-bottom: 0px; 
+      max-width: 300px;
+      white-space: nowrap;
+      letter-spacing: -3px;
+    }
+    .description.small {
+      font-size: 26px;
+    }
+    .name {
+      font-family: Arial, sans-serif;
+      font-size: 27px;
+      margin-top: -5px; 
+      margin-bottom: 5px; 
+    }
+    .price {
+      font-family: Arial, sans-serif;
+      font-size: 27px;
+      font-weight: bold;
+      margin-bottom: 8px; 
+    }
+    @media (max-width: 600px) {
+      #controls {
+        width: 100%;
+      }
+      .tag {
+        transform: scale(0.95);
+        transform-origin: top left;
+      }
+    }
+  </style>
 </head>
 <body>
+  <div id="controls">
+    <label for="fileInput" id="fileLabel">Choose file</label>
+    <input type="file" id="fileInput" accept=".xlsx, .xls" />
+    <button onclick="downloadPDF()">Download PDF</button>
+  </div>
+  <div id="tag-container"></div>
 
-<h2>Image Date Detector</h2>
-<div id="dropzone">Drag & Drop an image here</div>
-<div id="results"></div>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <script>
+    const fileInput = document.getElementById("fileInput");
+    const fileLabel = document.getElementById("fileLabel");
+    const container = document.getElementById("tag-container");
 
-<!-- Tesseract.js from CDN -->
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-<script>
-const dropzone = document.getElementById("dropzone");
-const results = document.getElementById("results");
+    fileInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      fileLabel.textContent = file.name;
 
-dropzone.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    dropzone.classList.add("dragover");
-});
-dropzone.addEventListener("dragleave", () => {
-    dropzone.classList.remove("dragover");
-});
-dropzone.addEventListener("drop", (e) => {
-    e.preventDefault();
-    dropzone.classList.remove("dragover");
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet);
 
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith("image/")) {
-        processImage(file);
-    } else {
-        results.textContent = "Please drop a valid image file.";
-    }
-});
+      container.innerHTML = "";
+      for (let row of rows) {
+        const itemCode = row["Item Code (O)"] || "";
+        const variantSKU = row["Variant SKU (O)"] || "";
+        const qrValue = variantSKU.trim() !== "" ? variantSKU : itemCode;
 
-function processImage(file) {
-    results.textContent = "Processing image... (this may take a few seconds)";
-    Tesseract.recognize(file, 'eng')
-        .then(({ data: { text } }) => {
-            results.textContent = "Detected Text:\n" + text + "\n\n";
-            const dates = extractDates(text);
-            if (dates.length > 0) {
-                results.textContent += "Detected Date(s):\n" + dates.join("\n");
-            } else {
-                results.textContent += "No date found.";
-            }
-        })
-        .catch(err => {
-            results.textContent = "Error: " + err.message;
+        let description = row["Item Description (O)"] || "";
+        if (description.includes(" - ")) description = "";
+
+        const itemName = row["Item Name (R)"] || "";
+        const price = row["Sell Price (R)"] || "";
+
+        const tag = document.createElement("div");
+        tag.className = "tag";
+
+        const qrCanvas = document.createElement("canvas");
+        new QRious({
+          element: qrCanvas,
+          value: qrValue,
+          size: 140,
+          level: 'H'
         });
-}
-function extractDates(text) {
-    const regex = /\b(?:\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}|\d{4}[-\/]\d{1,2}[-\/]\d{1,2})\b/g;
-    return text.match(regex) || [];
-}
-</script>
+        qrCanvas.className = "qr";
 
+        const textDiv = document.createElement("div");
+        textDiv.className = "text";
+
+        const descDiv = document.createElement("div");
+        descDiv.className = "description" + (description.length > 18 ? " small" : "");
+        descDiv.textContent = description;
+
+        const nameDiv = document.createElement("div");
+        nameDiv.className = "name";
+        nameDiv.textContent = itemName;
+
+        const priceDiv = document.createElement("div");
+        priceDiv.className = "price";
+        priceDiv.textContent = `RM ${price}`;
+
+        textDiv.appendChild(descDiv);
+        textDiv.appendChild(nameDiv);
+        textDiv.appendChild(priceDiv);
+
+        tag.appendChild(qrCanvas);
+        tag.appendChild(textDiv);
+        container.appendChild(tag);
+      }
+    });
+
+    async function downloadPDF() {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: "mm", format: [40, 12], orientation: "landscape" });
+      const tags = document.querySelectorAll(".tag");
+
+      for (let i = 0; i < tags.length; i++) {
+        const canvas = await html2canvas(tags[i], { scale: 2 });
+        const imgData = canvas.toDataURL("image/png");
+        if (i > 0) pdf.addPage([40, 12], 'landscape');
+        pdf.addImage(imgData, "PNG", 0, 0, 40, 12);
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      }
+
+      pdf.save("tags.pdf");
+    }
+  </script>
 </body>
 </html>
